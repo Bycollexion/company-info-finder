@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Company Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --matrix-green: #00ff00;
+            --matrix-dark: #001a00;
+            --matrix-glow: 0 0 10px var(--matrix-green);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: black;
+            color: var(--matrix-green);
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.1;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--matrix-green);
+            border-radius: 5px;
+            box-shadow: var(--matrix-glow);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: var(--matrix-glow);
+            font-size: 2.5em;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: var(--matrix-dark);
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            padding: 15px;
+            font-family: 'Share Tech Mono', monospace;
+            margin-bottom: 20px;
+            resize: vertical;
+            font-size: 16px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            box-shadow: var(--matrix-glow);
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: transparent;
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-green);
+            padding: 12px 25px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        
+        button:hover {
+            background-color: var(--matrix-green);
+            color: black;
+            box-shadow: var(--matrix-glow);
+        }
+        
+        .progress-bar {
+            height: 2px;
+            background-color: var(--matrix-dark);
+            margin: 20px 0;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -30%;
+            width: 30%;
+            height: 100%;
+            background-color: var(--matrix-green);
+            animation: progress 1s infinite linear;
+            box-shadow: var(--matrix-glow);
+        }
+        
+        @keyframes progress {
+            0% { left: -30%; }
+            100% { left: 100%; }
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid var(--matrix-green);
+        }
+        
+        th {
+            background-color: var(--matrix-dark);
+        }
+        
+        .source-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            margin: 2px;
+            border: 1px solid var(--matrix-green);
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        .error {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #status {
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="matrix-bg" id="matrix"></canvas>
+    <div class="container">
+        <h1>SG Company Scanner</h1>
+        <textarea id="companies" placeholder="Enter company names (one per line, max 50 companies)..."></textarea>
+        <div class="buttons">
+            <button onclick="searchCompanies()">Scan Companies</button>
+            <button onclick="downloadCSV()">Download Results</button>
+        </div>
+        <div class="progress-bar"></div>
+        <div id="status"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+    async function searchCompanies() {
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.querySelector('.progress-bar');
+        const companies = document.getElementById('companies').value.trim();
+        
+        if (!companies) {
+            resultDiv.innerHTML = '<span class="error">Please enter at least one company name</span>';
+            return;
+        }
+        
+        const companyList = [];
+        const lines = companies.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const company = lines[i].trim();
+            if (company) {
+                companyList.push(company);
+            }
+        }
+        
+        if (companyList.length > 50) {
+            resultDiv.innerHTML = '<span class="error">Maximum 50 companies allowed</span>';
+            return;
+        }
+        
+        resultDiv.innerHTML = '';
+        statusDiv.textContent = 'Scanning companies...';
+        progressBar.style.display = 'block';
+        
+        try {
+            const response = await fetch('http://localhost:3000/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    companies: companyList
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Server error');
+            }
+            
+            let html = `
+                <table>
+                    <tr>
+                        <th>Company</th>
+                        <th>Employee Count</th>
+                        <th>Sources</th>
+                    </tr>`;
+            
+            for (let i = 0; i < data.results.length; i++) {
+                const result = data.results[i];
+                html += `
+                    <tr>
+                        <td>${result.company_name}</td>
+                        <td>${result.employee_count || 'N/A'}</td>
+                        <td>`;
+                
+                if (result.sources && result.sources.length > 0) {
+                    for (let j = 0; j < result.sources.length; j++) {
+                        const source = result.sources[j];
+                        html += `<span class="source-tag">${source.source}: ${source.count}</span>`;
+                    }
+                } else if (result.error) {
+                    html += `<span class="error">${result.error}</span>`;
+                }
+                
+                html += `</td></tr>`;
+            }
+            
+            html += `</table>`;
+            resultDiv.innerHTML = html;
+        } catch (error) {
+            resultDiv.innerHTML = `<span class="error">${error.message || 'Error scanning companies'}</span>`;
+        } finally {
+            statusDiv.textContent = '';
+            progressBar.style.display = 'none';
+        }
+    }
+
+    async function downloadCSV() {
+        const companies = document.getElementById('companies').value.trim();
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.querySelector('.progress-bar');
+        
+        if (!companies) {
+            document.getElementById('result').innerHTML = '<span class="error">Please enter at least one company name</span>';
+            return;
+        }
+        
+        const companyList = [];
+        const lines = companies.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const company = lines[i].trim();
+            if (company) {
+                companyList.push(company);
+            }
+        }
+        
+        if (companyList.length > 50) {
+            document.getElementById('result').innerHTML = '<span class="error">Maximum 50 companies allowed</span>';
+            return;
+        }
+        
+        statusDiv.textContent = 'Generating CSV...';
+        progressBar.style.display = 'block';
+        
+        try {
+            const response = await fetch('http://localhost:3000/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    companies: companyList
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Server error');
+            }
+            
+            const rows = [['Company', 'Employee Count', 'Sources']];
+            
+            for (let i = 0; i < data.results.length; i++) {
+                const result = data.results[i];
+                let sources = '';
+                
+                if (result.sources && result.sources.length > 0) {
+                    const sourceParts = [];
+                    for (let j = 0; j < result.sources.length; j++) {
+                        const source = result.sources[j];
+                        sourceParts.push(`${source.source}: ${source.count}`);
+                    }
+                    sources = sourceParts.join('; ');
+                } else if (result.error) {
+                    sources = result.error;
+                }
+                
+                rows.push([
+                    result.company_name,
+                    result.employee_count || 'N/A',
+                    sources
+                ]);
+            }
+            
+            let csvContent = '';
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const processedRow = [];
+                for (let j = 0; j < row.length; j++) {
+                    const cell = row[j];
+                    processedRow.push(`"${(cell || '').toString().replace(/"/g, '""')}"`);
+                }
+                csvContent += processedRow.join(',') + '\n';
+            }
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'company_results.csv';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            statusDiv.textContent = 'CSV downloaded successfully!';
+        } catch (error) {
+            document.getElementById('result').innerHTML = `<span class="error">${error.message || 'Error generating CSV'}</span>`;
+        } finally {
+            progressBar.style.display = 'none';
+        }
+    }
+
+    // Matrix rain animation
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const drops = [];
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+
+    for (let i = 0; i < columns; i++) {
+        drops[i] = 1;
+    }
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#00ff00';
+        ctx.font = fontSize + 'px monospace';
+        
+        for (let i = 0; i < drops.length; i++) {
+            const text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+
+    setInterval(drawMatrix, 50);
+    </script>
+</body>
+</html>
