@@ -10,14 +10,14 @@ from urllib.parse import quote
 import random
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import asyncio
 
 app = Flask(__name__)
 CORS(app)
 
 # Constants
-MAX_WORKERS = 10  # Increased from 5 to 10
-SEARCH_DELAY = 0.5  # Reduced from 1 to 0.5
+MAX_WORKERS = 5  # Reduced from 10 to 5 for Render's free tier
+SEARCH_DELAY = 1.0  # Increased from 0.5 to 1.0 to avoid rate limiting
+BATCH_SIZE = 5  # Process companies in smaller batches
 
 @app.route('/')
 def index():
@@ -289,76 +289,41 @@ def search():
     """Handle search requests"""
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-            
         companies = data.get('companies', [])
-        format_type = data.get('format', 'json')
         
         if not companies:
-            return jsonify({"error": "No companies provided"}), 400
+            return jsonify({'error': 'No companies provided'}), 400
             
         if len(companies) > 50:
-            return jsonify({"error": "Maximum 50 companies allowed"}), 400
-            
+            return jsonify({'error': 'Maximum 50 companies allowed'}), 400
+
         results = []
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(search_company, company.strip()): company for company in companies}
-            for future in as_completed(futures):
-                company = futures[future]
-                try:
-                    result = future.result()
-                except Exception as e:
-                    print(f"Error searching company {company}: {str(e)}")
-                    result = {
-                        "company": company,
-                        "error": str(e),
-                        "employee_count": "N/A",
-                        "category": "Error",
-                        "sources": []
-                    }
-                results.append(result)
-                time.sleep(SEARCH_DELAY)
+        # Process companies in smaller batches
+        for i in range(0, len(companies), BATCH_SIZE):
+            batch = companies[i:i + BATCH_SIZE]
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                batch_results = list(executor.map(process_company, batch))
+                results.extend(batch_results)
+            time.sleep(1)  # Add delay between batches
             
-        if format_type == 'csv':
-            try:
-                output = StringIO()
-                writer = csv.writer(output)
-                writer.writerow(['Company', 'Category', 'Employee Count', 'Trusted Source', 'LinkedIn URL', 'Google URL', 'Sources'])
-                
-                for result in results:
-                    linkedin_url = next((source['url'] for source in result.get('sources', [])
-                                       if source['source'] == 'LinkedIn'), '')
-                    google_url = next((source['url'] for source in result.get('sources', [])
-                                     if source['source'] == 'Google'), '')
-                    sources = ', '.join([f"{source['source']}: {source['count']}" 
-                                       for source in result.get('sources', [])])
-                    
-                    writer.writerow([
-                        result['company'],
-                        result.get('category', 'Unknown'),
-                        result.get('employee_count', 'N/A'),
-                        result.get('trusted_source', 'N/A'),
-                        linkedin_url,
-                        google_url,
-                        sources
-                    ])
-                
-                output.seek(0)
-                return Response(
-                    output.getvalue(),
-                    mimetype='text/csv',
-                    headers={'Content-Disposition': 'attachment; filename=company_results.csv'}
-                )
-            except Exception as e:
-                print(f"Error generating CSV: {str(e)}")
-                return jsonify({"error": "Error generating CSV"}), 500
-        
-        return jsonify(results)
-        
+        return jsonify({'results': results})
     except Exception as e:
         print(f"Search error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
+
+def process_company(company_name):
+    try:
+        time.sleep(SEARCH_DELAY)  # Add delay between requests
+        return search_company(company_name)
+    except Exception as e:
+        print(f"Error processing {company_name}: {str(e)}")
+        return {
+            'company_name': company_name,
+            'employee_count': 'Error',
+            'category': 'Error',
+            'source': 'Error',
+            'error': str(e)
+        }
 
 def get_headers():
     """Generate random headers to avoid detection"""
