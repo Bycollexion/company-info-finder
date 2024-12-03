@@ -15,9 +15,10 @@ app = Flask(__name__)
 CORS(app)
 
 # Constants
-MAX_WORKERS = 5  # Reduced from 10 to 5 for Render's free tier
-SEARCH_DELAY = 1.0  # Increased from 0.5 to 1.0 to avoid rate limiting
-BATCH_SIZE = 5  # Process companies in smaller batches
+MAX_WORKERS = 8  # Increased workers for parallel processing
+SEARCH_DELAY = 0.75  # Slightly reduced delay
+BATCH_SIZE = 15  # Increased batch size
+REQUEST_TIMEOUT = 10  # Timeout for individual requests
 
 @app.route('/')
 def index():
@@ -298,13 +299,30 @@ def search():
             return jsonify({'error': 'Maximum 50 companies allowed'}), 400
 
         results = []
-        # Process companies in smaller batches
-        for i in range(0, len(companies), BATCH_SIZE):
+        total_companies = len(companies)
+        
+        # Process companies in batches with progress tracking
+        for i in range(0, total_companies, BATCH_SIZE):
             batch = companies[i:i + BATCH_SIZE]
+            print(f"Processing batch {i//BATCH_SIZE + 1} of {(total_companies + BATCH_SIZE - 1)//BATCH_SIZE}")
+            
             with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                batch_results = list(executor.map(process_company, batch))
+                batch_futures = [executor.submit(process_company, company) for company in batch]
+                batch_results = []
+                
+                for future in as_completed(batch_futures):
+                    try:
+                        result = future.result()
+                        batch_results.append(result)
+                    except Exception as e:
+                        print(f"Batch processing error: {str(e)}")
+                        continue
+                
                 results.extend(batch_results)
-            time.sleep(1)  # Add delay between batches
+            
+            # Only sleep between batches if there are more batches to process
+            if i + BATCH_SIZE < total_companies:
+                time.sleep(0.5)  # Reduced delay between batches
             
         return jsonify({'results': results})
     except Exception as e:
@@ -660,90 +678,68 @@ def get_google_count(company_name):
 
 def search_company(company_name):
     """Enhanced company search with multiple sources"""
-    results = {
-        'company': company_name,
-        'employee_count': None,
-        'category': 'Unknown',
-        'trusted_source': None,
-        'sources': []
-    }
-    
-    # LinkedIn search (primary source)
-    linkedin_count = get_linkedin_count(company_name)
-    if linkedin_count:
-        results['sources'].append({
-            'source': 'LinkedIn',
-            'count': linkedin_count,
-            'url': f"https://www.linkedin.com/company/{quote(company_name.lower())}"
-        })
-        results['employee_count'] = linkedin_count
-        results['trusted_source'] = 'LinkedIn'
-    
-    # JobStreet search
-    jobstreet_count = get_jobstreet_count(company_name)
-    if jobstreet_count:
-        results['sources'].append({
-            'source': 'JobStreet',
-            'count': jobstreet_count,
-            'url': f"https://www.jobstreet.com.sg/en/companies/{quote(company_name.lower())}-jobs"
-        })
-        if not results['employee_count']:
-            results['employee_count'] = jobstreet_count
-            results['trusted_source'] = 'JobStreet'
-    
-    # Indeed search
-    indeed_count = get_indeed_count(company_name)
-    if indeed_count:
-        results['sources'].append({
-            'source': 'Indeed',
-            'count': indeed_count,
-            'url': f"https://sg.indeed.com/cmp/{quote(company_name.replace(' ', '-'))}"
-        })
-        if not results['employee_count']:
-            results['employee_count'] = indeed_count
-            results['trusted_source'] = 'Indeed'
-    
-    # MyCareersFuture search
-    mcf_count = get_mycareersfuture_count(company_name)
-    if mcf_count:
-        results['sources'].append({
-            'source': 'MyCareersFuture',
-            'count': mcf_count,
-            'url': f"https://www.mycareersfuture.gov.sg/company/{quote(company_name.lower())}"
-        })
-        if not results['employee_count']:
-            results['employee_count'] = mcf_count
-            results['trusted_source'] = 'MyCareersFuture'
-    
-    # Google search as fallback
-    if not results['employee_count']:
-        google_count = get_google_count(company_name)
-        if google_count:
-            results['sources'].append({
-                'source': 'Google',
-                'count': google_count,
-                'url': f"https://www.google.com/search?q={quote(company_name)}+singapore+number+of+employees"
-            })
-            results['employee_count'] = google_count
-            results['trusted_source'] = 'Google'
-
-    # Determine company category based on the most trusted source
-    if results['employee_count']:
-        count = extract_number_from_range(results['employee_count'])
-        if count >= 200:
-            results['category'] = 'Corporate'
-        elif count <= 100:
-            results['category'] = 'SME'
-        else:
-            results['category'] = 'Mid-sized Company'
+    try:
+        # Add timeout to requests
+        session = requests.Session()
+        session.timeout = REQUEST_TIMEOUT
         
-        # Check if it's a recruitment company
-        company_lower = company_name.lower()
-        recruitment_keywords = ['recruit', 'staffing', 'manpower', 'employment agency', 'job agency', 'talent']
-        if any(keyword in company_lower for keyword in recruitment_keywords):
-            results['category'] = 'Recruitment Company'
-    
-    return results
+        sources = [
+            ('LinkedIn', get_linkedin_count),
+            ('JobStreet', get_jobstreet_count),
+            ('Indeed', get_indeed_count),
+            ('MyCareersFuture', get_mycareersfuture_count),
+            ('Google', get_google_count)
+        ]
+        
+        results = []
+        employee_counts = []
+        
+        for source_name, search_func in sources:
+            try:
+                result = search_func(company_name)
+                if result and result.get('employee_count'):
+                    results.append(result)
+                    if result['employee_count'].isdigit():
+                        employee_counts.append(int(result['employee_count']))
+            except Exception as e:
+                print(f"Error in {source_name} search for {company_name}: {str(e)}")
+                continue
+        
+        if not results:
+            return {
+                'company_name': company_name,
+                'employee_count': 'Not found',
+                'category': 'Unknown',
+                'source': 'None',
+                'error': 'No data found from any source'
+            }
+        
+        # Use the most common or highest employee count
+        if employee_counts:
+            employee_count = max(set(employee_counts), key=employee_counts.count)
+        else:
+            employee_count = results[0]['employee_count']
+        
+        # Determine company category
+        category = get_company_category(str(employee_count), company_name.lower())
+        
+        return {
+            'company_name': company_name,
+            'employee_count': str(employee_count),
+            'category': category,
+            'source': results[0]['source'],
+            'sources': [{'source': r['source'], 'count': r['employee_count']} for r in results]
+        }
+        
+    except Exception as e:
+        print(f"Error processing {company_name}: {str(e)}")
+        return {
+            'company_name': company_name,
+            'employee_count': 'Error',
+            'category': 'Error',
+            'source': 'Error',
+            'error': str(e)
+        }
 
 if __name__ == '__main__':
     try:
