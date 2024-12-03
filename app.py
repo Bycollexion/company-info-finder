@@ -582,12 +582,12 @@ def get_linkedin_count(company_name):
                         continue
                 
                 if company_size:
-                    return company_size
+                    return {'source': 'LinkedIn', 'employee_count': company_size}
             
             time.sleep(1)
                 
     except Exception as e:
-        print(f"LinkedIn error for {company_name}: {str(e)}")
+        print(f"Error in LinkedIn search for {company_name}: {str(e)}")
     
     return None
 
@@ -666,13 +666,13 @@ def get_google_count(company_name):
                 for div in soup.find_all(['div', 'span', 'p']):
                     count = extract_employee_count(div.get_text())
                     if count:
-                        return count
+                        return {'source': 'Google', 'employee_count': count}
             
             # Add delay between attempts
             time.sleep(1)
                 
     except Exception as e:
-        print(f"Google error: {str(e)}")
+        print(f"Error in Google search for {company_name}: {str(e)}")
     
     return None
 
