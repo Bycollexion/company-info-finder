@@ -605,9 +605,11 @@ def get_jobstreet_count(company_name):
                     parent = size_text.parent
                     size_value = parent.find_next(text=re.compile(r'\d+'))
                     if size_value:
-                        return extract_employee_count(size_value)
+                        count = extract_employee_count(size_value)
+                        if count:
+                            return {'source': 'JobStreet', 'employee_count': count}
     except Exception as e:
-        print(f"JobStreet error for {company_name}: {str(e)}")
+        print(f"Error in JobStreet search for {company_name}: {str(e)}")
     return None
 
 def get_indeed_count(company_name):
@@ -621,9 +623,11 @@ def get_indeed_count(company_name):
             if size_div:
                 size_text = size_div.find_next(text=re.compile(r'\d+|\d+[,]\d+|\d+[-]\d+'))
                 if size_text:
-                    return extract_employee_count(size_text)
+                    count = extract_employee_count(size_text)
+                    if count:
+                        return {'source': 'Indeed', 'employee_count': count}
     except Exception as e:
-        print(f"Indeed error for {company_name}: {str(e)}")
+        print(f"Error in Indeed search for {company_name}: {str(e)}")
     return None
 
 def get_mycareersfuture_count(company_name):
@@ -639,9 +643,11 @@ def get_mycareersfuture_count(company_name):
                 if size_text:
                     size_value = size_text.find_next(text=re.compile(r'\d+|\d+[,]\d+|\d+[-]\d+'))
                     if size_value:
-                        return extract_employee_count(size_value)
+                        count = extract_employee_count(size_value)
+                        if count:
+                            return {'source': 'MyCareersFuture', 'employee_count': count}
     except Exception as e:
-        print(f"MyCareersFuture error for {company_name}: {str(e)}")
+        print(f"Error in MyCareersFuture search for {company_name}: {str(e)}")
     return None
 
 def get_google_count(company_name):
