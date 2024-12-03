@@ -1,291 +1,299 @@
-
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Singapore Company Scanner</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 1200px;
-                margin: 40px auto;
-                padding: 20px;
-                background: #f5f5f5;
-            }
-            .container {
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            h1 {
-                color: #333;
-                text-align: center;
-            }
-            .search-form {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin: 20px 0;
-            }
-            input[type="text"], textarea {
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 16px;
-            }
-            textarea {
-                height: 200px;
-                font-family: monospace;
-            }
-            .buttons {
-                display: flex;
-                gap: 10px;
-            }
-            button {
-                padding: 10px 20px;
-                background: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-            }
-            button.secondary {
-                background: #6c757d;
-            }
-            button:hover {
-                opacity: 0.9;
-            }
-            #result {
-                margin-top: 20px;
-                padding: 15px;
-                border-radius: 4px;
-            }
-            .error {
-                background: #ffe6e6;
-                color: #d63031;
-            }
-            .success {
-                background: #e6ffe6;
-                color: #27ae60;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 20px;
-                background: white;
-            }
-            th, td {
-                padding: 12px;
-                text-align: left;
-                border: 1px solid #ddd;
-            }
-            th {
-                background: #f8f9fa;
-                font-weight: bold;
-                position: sticky;
-                top: 0;
-                z-index: 1;
-            }
-            .category-tag {
-                display: inline-block;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            .category-corporate { background: #e3f2fd; color: #1565c0; }
-            .category-sme { background: #e8f5e9; color: #2e7d32; }
-            .category-recruitment { background: #fff3e0; color: #ef6c00; }
-            .category-mid { background: #f3e5f5; color: #7b1fa2; }
-            .category-unknown { background: #f5f5f5; color: #757575; }
-            .category-error { background: #ffebee; color: #c62828; }
-            .source-link {
-                display: inline-block;
-                padding: 4px 8px;
-                margin: 2px;
-                border-radius: 4px;
-                text-decoration: none;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            .source-linkedin {
-                background: #0077b5;
-                color: white;
-            }
-            .source-google {
-                background: #4285f4;
-                color: white;
-            }
-            .source-link:hover {
-                opacity: 0.9;
-            }
-            .source-count {
-                display: inline-block;
-                padding: 2px 6px;
-                margin: 2px;
-                border-radius: 3px;
-                background: #f8f9fa;
-                font-size: 12px;
-            }
-            .progress-bar {
-                width: 100%;
-                height: 20px;
-                background-color: #f0f0f0;
-                border-radius: 10px;
-                overflow: hidden;
-                margin-top: 10px;
-                display: none;
-            }
-            .progress-bar-fill {
-                height: 100%;
-                background-color: #4CAF50;
-                width: 0%;
-                transition: width 0.3s ease;
-            }
-            #status {
-                margin-top: 10px;
-                font-style: italic;
-                color: #666;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Singapore Company Scanner</h1>
-            <div class="search-form">
-                <textarea id="companies" placeholder="Enter company names (one per line, max 50 companies)..."></textarea>
-                <div class="buttons">
-                    <button onclick="searchCompanies()">Search Companies</button>
-                    <button class="secondary" onclick="downloadCSV()">Download as CSV</button>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill"></div>
-                </div>
-                <div id="status"></div>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Company Info Finder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: #000;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        }
+        h1 {
+            text-align: center;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            margin-bottom: 30px;
+        }
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        textarea {
+            background-color: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 15px;
+            font-family: 'Fira Code', monospace;
+            height: 200px;
+            resize: vertical;
+            border-radius: 5px;
+        }
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background-color: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 0 15px #00ff00;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #00ff00;
+        }
+        th {
+            background-color: rgba(0, 255, 0, 0.1);
+        }
+        .category-tag {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .category-corporate { background: rgba(0, 255, 0, 0.2); }
+        .category-sme { background: rgba(0, 255, 0, 0.1); }
+        .category-midsized { background: rgba(0, 255, 0, 0.15); }
+        .category-unknown { background: rgba(255, 255, 255, 0.1); }
+        .category-error { background: rgba(255, 0, 0, 0.2); }
+        .source-count {
+            display: inline-block;
+            padding: 2px 6px;
+            margin: 2px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 3px;
+        }
+        .error {
+            color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .success {
+            color: #00ff00;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 2px;
+            background-color: rgba(0, 255, 0, 0.2);
+            margin-top: 10px;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background-color: #00ff00;
+            animation: progress 1s infinite linear;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        @keyframes progress {
+            0% { left: -30%; }
+            100% { left: 100%; }
+        }
+        #status {
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            color: rgba(0, 255, 0, 0.7);
+        }
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.1;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="matrix-bg" id="matrix"></canvas>
+    <div class="container">
+        <h1>Company Info Finder</h1>
+        <div class="search-form">
+            <textarea id="companies" placeholder="Enter company names (one per line, max 50 companies)..."></textarea>
+            <div class="buttons">
+                <button onclick="searchCompanies()">Search Companies</button>
+                <button onclick="downloadCSV()">Download CSV</button>
             </div>
-            <div id="result"></div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill"></div>
+            </div>
+            <div id="status"></div>
         </div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+    async function searchCompanies(format = 'json') {
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.querySelector('.progress-bar');
+        const progressBarFill = document.querySelector('.progress-bar-fill');
+        const companies = document.getElementById('companies').value.trim();
         
-        <script>
-        async function searchCompanies(format = 'json') {
-            const resultDiv = document.getElementById('result');
-            const statusDiv = document.getElementById('status');
-            const progressBar = document.querySelector('.progress-bar');
-            const progressBarFill = document.querySelector('.progress-bar-fill');
-            const companies = document.getElementById('companies').value.trim();
+        if (!companies) {
+            resultDiv.className = 'error';
+            resultDiv.textContent = 'Please enter at least one company name';
+            return;
+        }
+        
+        const companyList = companies.split('\n').filter(c => c.trim());
+        if (companyList.length > 50) {
+            resultDiv.className = 'error';
+            resultDiv.textContent = 'Maximum 50 companies allowed';
+            return;
+        }
+        
+        resultDiv.className = '';
+        statusDiv.textContent = 'Initializing search...';
+        progressBar.style.display = 'block';
+        
+        try {
+            const response = await fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    companies: companyList,
+                    format: format
+                })
+            });
             
-            if (!companies) {
-                resultDiv.className = 'error';
-                resultDiv.textContent = 'Please enter at least one company name';
-                return;
-            }
+            const data = await response.json();
             
-            const companyCount = companies.split('\n').filter(c => c.trim()).length;
-            if (companyCount > 50) {
-                resultDiv.className = 'error';
-                resultDiv.textContent = 'Maximum 50 companies allowed';
-                return;
-            }
-            
-            resultDiv.className = '';
-            statusDiv.textContent = 'Searching...';
-            progressBar.style.display = 'block';
-            progressBarFill.style.width = '0%';
-            
-            try {
-                const response = await fetch('/bulk_search', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `companies=${encodeURIComponent(companies)}&format=${format}`
+            if (response.ok) {
+                resultDiv.className = 'success';
+                
+                let html = `
+                    <h3>Results for ${data.results.length} Companies</h3>
+                    <table>
+                        <tr>
+                            <th>Company</th>
+                            <th>Category</th>
+                            <th>Employee Count</th>
+                            <th>Source</th>
+                            <th>Sources</th>
+                        </tr>`;
+                
+                data.results.forEach(result => {
+                    const categoryClass = `category-${result.category?.toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
+                    
+                    html += `
+                        <tr>
+                            <td>${result.company_name}</td>
+                            <td><span class="category-tag ${categoryClass}">${result.category || 'Unknown'}</span></td>
+                            <td>${result.employee_count || 'N/A'}</td>
+                            <td>${result.source || 'N/A'}</td>
+                            <td>`;
+                    
+                    if (result.sources) {
+                        result.sources.forEach(source => {
+                            html += `<span class="source-count">${source.source}: ${source.count}</span>`;
+                        });
+                    } else if (result.error) {
+                        html += `<span class="error">${result.error}</span>`;
+                    }
+                    
+                    html += `</td></tr>`;
                 });
                 
-                if (format === 'csv') {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'company_results.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    return;
-                }
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    resultDiv.className = 'success';
-                    
-                    let html = `
-                        <h3>Results for ${data.length} Companies</h3>
-                        <table>
-                            <tr>
-                                <th>Company</th>
-                                <th>Category</th>
-                                <th>Employee Count</th>
-                                <th>Trusted Source</th>
-                                <th>Sources & Links</th>
-                            </tr>`;
-                    
-                    data.forEach(result => {
-                        const categoryClass = `category-${result.category?.toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
-                        
-                        html += `
-                            <tr>
-                                <td>${result.company}</td>
-                                <td><span class="category-tag ${categoryClass}">${result.category || 'Unknown'}</span></td>
-                                <td>${result.employee_count || 'N/A'}</td>
-                                <td><span class="trusted-source">${result.trusted_source || 'N/A'}</span></td>
-                                <td>`;
-                        
-                        if (result.sources) {
-                            result.sources.forEach(source => {
-                                // Show original count if different from validated count
-                                const countDisplay = source.original_count && source.original_count !== source.count
-                                    ? `${source.count} (adjusted from ${source.original_count})`
-                                    : source.count;
-                                    
-                                html += `<span class="source-count">${source.source}: ${countDisplay}</span>`;
-                                
-                                if (source.url) {
-                                    const sourceClass = source.source.toLowerCase();
-                                    html += `
-                                        <a href="${source.url}" 
-                                           target="_blank" 
-                                           class="source-link source-${sourceClass}"
-                                           title="View on ${source.source}">
-                                            ${source.source} Source
-                                        </a>`;
-                                }
-                                html += '<br>';
-                            });
-                        }
-                        
-                        html += `</td></tr>`;
-                    });
-                    
-                    html += `</table>`;
-                    resultDiv.innerHTML = html;
-                } else {
-                    resultDiv.className = 'error';
-                    resultDiv.textContent = data.error || 'Error searching companies';
-                }
-            } catch (error) {
+                html += `</table>`;
+                resultDiv.innerHTML = html;
+            } else {
                 resultDiv.className = 'error';
-                resultDiv.textContent = 'Error connecting to server';
-            } finally {
-                statusDiv.textContent = '';
-                progressBar.style.display = 'none';
+                resultDiv.textContent = data.error || 'Error searching companies';
             }
+        } catch (error) {
+            resultDiv.className = 'error';
+            resultDiv.textContent = 'Error connecting to server';
+            console.error('Error:', error);
+        } finally {
+            statusDiv.textContent = '';
+            progressBar.style.display = 'none';
         }
-        
-        async function downloadCSV() {
-            await searchCompanies('csv');
+    }
+
+    async function downloadCSV() {
+        await searchCompanies('csv');
+    }
+
+    // Matrix animation
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const chars = "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン0123456789";
+    const charArray = chars.split('');
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0F0';
+        ctx.font = fontSize + 'px monospace';
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = charArray[Math.floor(Math.random() * charArray.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
         }
-        </script>
-    </body>
-    </html>
-    
+    }
+
+    setInterval(drawMatrix, 50);
+
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+    </script>
+</body>
+</html>
