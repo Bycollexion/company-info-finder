@@ -232,9 +232,9 @@
                         <td>${result.source || 'N/A'}</td>
                         <td>`;
                 
-                if (Array.isArray(result.sources)) {
+                if (result.sources && Array.isArray(result.sources)) {
                     for (const source of result.sources) {
-                        html += `<span class="source-count">${source.source}: ${source.count}</span>`;
+                        html += `<span class="source-count">${source.source}: ${source.employee_count}</span>`;
                     }
                 } else if (result.error) {
                     html += `<span class="error">${result.error}</span>`;
@@ -303,14 +303,24 @@
             
             // Convert results to CSV
             const csvRows = [];
-            csvRows.push(['Company', 'Category', 'Employee Count', 'Source']);
+            csvRows.push(['Company', 'Category', 'Employee Count', 'Source', 'All Sources']);
             
             for (const result of data.results) {
+                let sources = '';
+                if (result.sources && Array.isArray(result.sources)) {
+                    sources = result.sources
+                        .map(s => `${s.source}: ${s.employee_count}`)
+                        .join('; ');
+                } else if (result.error) {
+                    sources = result.error;
+                }
+                
                 csvRows.push([
                     result.company_name || '',
                     result.category || '',
                     result.employee_count || '',
-                    result.source || ''
+                    result.source || '',
+                    sources
                 ]);
             }
             
