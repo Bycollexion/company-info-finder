@@ -35,33 +35,57 @@ def extract_employee_count(text):
             return int(count)
     return None
 
+def categorize_company(employee_count):
+    if employee_count is None:
+        return "Unknown"
+    if employee_count < 200:
+        return "SME"
+    return "Corporate"
+
 def search_linkedin(company_name):
     try:
-        url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '-')}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        company_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '-')}"
+        response = requests.get(company_url, headers=HEADERS, timeout=10)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'lxml')
             for tag in soup.find_all(['p', 'div', 'span']):
                 if 'employees' in tag.text.lower():
                     count = extract_employee_count(tag.text)
                     if count:
-                        return {'source': 'LinkedIn', 'count': count}
+                        is_recruitment = any(keyword in tag.text.lower() for keyword in ['recruitment', 'staffing', 'manpower', 'hr solutions'])
+                        category = "Recruitment Agency" if is_recruitment else categorize_company(count)
+                        return {
+                            'source': 'LinkedIn',
+                            'count': count,
+                            'url': company_url,
+                            'category': category
+                        }
     except Exception as e:
         print(f"LinkedIn error for {company_name}: {str(e)}")
     return None
 
 def search_google(company_name):
     try:
-        query = f"{company_name} singapore number of employees"
-        url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        query = f"{company_name} singapore number of employees site:linkedin.com OR site:glassdoor.com"
+        search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+        response = requests.get(search_url, headers=HEADERS, timeout=10)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'lxml')
-            for tag in soup.find_all(['div', 'span', 'p']):
-                if 'employees' in tag.text.lower():
-                    count = extract_employee_count(tag.text)
+            for result in soup.find_all('div', class_='g'):
+                link = result.find('a')
+                if link and ('linkedin.com' in link['href'] or 'glassdoor.com' in link['href']):
+                    result_url = link['href']
+                    text_content = result.get_text()
+                    count = extract_employee_count(text_content)
                     if count:
-                        return {'source': 'Google', 'count': count}
+                        is_recruitment = any(keyword in text_content.lower() for keyword in ['recruitment', 'staffing', 'manpower', 'hr solutions'])
+                        category = "Recruitment Agency" if is_recruitment else categorize_company(count)
+                        return {
+                            'source': 'Google',
+                            'count': count,
+                            'url': result_url,
+                            'category': category
+                        }
     except Exception as e:
         print(f"Google error for {company_name}: {str(e)}")
     return None
