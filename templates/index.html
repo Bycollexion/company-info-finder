@@ -202,9 +202,16 @@
             });
             
             const data = await response.json();
+            console.log('Server response:', data); // Debug log
             
             if (response.ok) {
                 resultDiv.className = 'success';
+                
+                // Check if data.results exists and is an array
+                if (!data.results || !Array.isArray(data.results)) {
+                    console.error('Invalid data format:', data);
+                    throw new Error('Invalid response format from server');
+                }
                 
                 let html = `
                     <h3>Results for ${data.results.length} Companies</h3>
@@ -217,27 +224,30 @@
                             <th>Sources</th>
                         </tr>`;
                 
-                data.results.forEach(result => {
-                    const categoryClass = `category-${result.category?.toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
+                // Use traditional for loop instead of forEach
+                for (let i = 0; i < data.results.length; i++) {
+                    const result = data.results[i];
+                    const categoryClass = `category-${(result.category || '').toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
                     
                     html += `
                         <tr>
-                            <td>${result.company_name}</td>
+                            <td>${result.company_name || 'N/A'}</td>
                             <td><span class="category-tag ${categoryClass}">${result.category || 'Unknown'}</span></td>
                             <td>${result.employee_count || 'N/A'}</td>
                             <td>${result.source || 'N/A'}</td>
                             <td>`;
                     
-                    if (result.sources) {
-                        result.sources.forEach(source => {
+                    if (Array.isArray(result.sources)) {
+                        for (let j = 0; j < result.sources.length; j++) {
+                            const source = result.sources[j];
                             html += `<span class="source-count">${source.source}: ${source.count}</span>`;
-                        });
+                        }
                     } else if (result.error) {
                         html += `<span class="error">${result.error}</span>`;
                     }
                     
                     html += `</td></tr>`;
-                });
+                }
                 
                 html += `</table>`;
                 resultDiv.innerHTML = html;
