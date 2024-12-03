@@ -165,11 +165,10 @@
     </div>
 
     <script>
-    async function searchCompanies(format = 'json') {
+    async function searchCompanies() {
         const resultDiv = document.getElementById('result');
         const statusDiv = document.getElementById('status');
         const progressBar = document.querySelector('.progress-bar');
-        const progressBarFill = document.querySelector('.progress-bar-fill');
         const companies = document.getElementById('companies').value.trim();
         
         if (!companies) {
@@ -186,7 +185,7 @@
         }
         
         resultDiv.className = '';
-        statusDiv.textContent = 'Initializing search...';
+        statusDiv.textContent = 'Searching...';
         progressBar.style.display = 'block';
         
         try {
@@ -196,69 +195,61 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    companies: companyList,
-                    format: format
+                    companies: companyList
                 })
             });
             
             const data = await response.json();
-            console.log('Server response:', data); // Debug log
+            console.log('Server response:', data);
             
-            if (response.ok) {
-                resultDiv.className = 'success';
-                
-                // Check if data.results exists and is an array
-                if (!data.results || !Array.isArray(data.results)) {
-                    console.error('Invalid data format:', data);
-                    throw new Error('Invalid response format from server');
-                }
-                
-                let html = `
-                    <h3>Results for ${data.results.length} Companies</h3>
-                    <table>
-                        <tr>
-                            <th>Company</th>
-                            <th>Category</th>
-                            <th>Employee Count</th>
-                            <th>Source</th>
-                            <th>Sources</th>
-                        </tr>`;
-                
-                // Use traditional for loop instead of forEach
-                for (let i = 0; i < data.results.length; i++) {
-                    const result = data.results[i];
-                    const categoryClass = `category-${(result.category || '').toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
-                    
-                    html += `
-                        <tr>
-                            <td>${result.company_name || 'N/A'}</td>
-                            <td><span class="category-tag ${categoryClass}">${result.category || 'Unknown'}</span></td>
-                            <td>${result.employee_count || 'N/A'}</td>
-                            <td>${result.source || 'N/A'}</td>
-                            <td>`;
-                    
-                    if (Array.isArray(result.sources)) {
-                        for (let j = 0; j < result.sources.length; j++) {
-                            const source = result.sources[j];
-                            html += `<span class="source-count">${source.source}: ${source.count}</span>`;
-                        }
-                    } else if (result.error) {
-                        html += `<span class="error">${result.error}</span>`;
-                    }
-                    
-                    html += `</td></tr>`;
-                }
-                
-                html += `</table>`;
-                resultDiv.innerHTML = html;
-            } else {
-                resultDiv.className = 'error';
-                resultDiv.textContent = data.error || 'Error searching companies';
+            if (!response.ok) {
+                throw new Error(data.error || 'Server error');
             }
+            
+            if (!data.results || !Array.isArray(data.results)) {
+                throw new Error('Invalid response format from server');
+            }
+            
+            let html = `
+                <h3>Results for ${data.results.length} Companies</h3>
+                <table>
+                    <tr>
+                        <th>Company</th>
+                        <th>Category</th>
+                        <th>Employee Count</th>
+                        <th>Source</th>
+                        <th>Sources</th>
+                    </tr>`;
+            
+            for (const result of data.results) {
+                const categoryClass = `category-${(result.category || '').toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
+                
+                html += `
+                    <tr>
+                        <td>${result.company_name || 'N/A'}</td>
+                        <td><span class="category-tag ${categoryClass}">${result.category || 'Unknown'}</span></td>
+                        <td>${result.employee_count || 'N/A'}</td>
+                        <td>${result.source || 'N/A'}</td>
+                        <td>`;
+                
+                if (Array.isArray(result.sources)) {
+                    for (const source of result.sources) {
+                        html += `<span class="source-count">${source.source}: ${source.count}</span>`;
+                    }
+                } else if (result.error) {
+                    html += `<span class="error">${result.error}</span>`;
+                }
+                
+                html += `</td></tr>`;
+            }
+            
+            html += `</table>`;
+            resultDiv.innerHTML = html;
+            resultDiv.className = 'success';
         } catch (error) {
-            resultDiv.className = 'error';
-            resultDiv.textContent = 'Error connecting to server';
             console.error('Error:', error);
+            resultDiv.className = 'error';
+            resultDiv.textContent = error.message || 'Error searching companies';
         } finally {
             statusDiv.textContent = '';
             progressBar.style.display = 'none';
