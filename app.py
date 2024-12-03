@@ -5,9 +5,44 @@ from bs4 import BeautifulSoup
 import re
 import time
 import random
+from datetime import datetime, timedelta
+from collections import deque
 
 app = Flask(__name__)
 CORS(app)
+
+# Rate limiting setup
+class RateLimiter:
+    def __init__(self, max_requests, time_window):
+        self.max_requests = max_requests
+        self.time_window = time_window  # in seconds
+        self.requests = deque()
+    
+    def can_make_request(self):
+        now = datetime.now()
+        # Remove old requests
+        while self.requests and self.requests[0] < now - timedelta(seconds=self.time_window):
+            self.requests.popleft()
+        
+        # Check if we can make a new request
+        if len(self.requests) < self.max_requests:
+            self.requests.append(now)
+            return True
+        return False
+    
+    def time_until_next(self):
+        if not self.requests:
+            return 0
+        
+        oldest_request = self.requests[0]
+        time_passed = (datetime.now() - oldest_request).total_seconds()
+        if time_passed < self.time_window:
+            return self.time_window - time_passed
+        return 0
+
+# Create rate limiters for different sources
+linkedin_limiter = RateLimiter(max_requests=5, time_window=60)  # 5 requests per minute
+google_limiter = RateLimiter(max_requests=5, time_window=60)    # 5 requests per minute
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -55,9 +90,19 @@ def categorize_company(employee_count):
     return "Corporate"
 
 def search_linkedin(company_name):
+    if not linkedin_limiter.can_make_request():
+        wait_time = linkedin_limiter.time_until_next()
+        time.sleep(wait_time)
+        if not linkedin_limiter.can_make_request():
+            return {'error': 'Rate limit exceeded for LinkedIn, please try again later'}
+    
     try:
         company_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '-')}"
         response = requests.get(company_url, headers=HEADERS, timeout=10)
+        
+        if response.status_code == 429:  # Too Many Requests
+            return {'error': 'LinkedIn rate limit reached, please try again later'}
+        
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'lxml')
             for tag in soup.find_all(['p', 'div', 'span']):
@@ -73,15 +118,27 @@ def search_linkedin(company_name):
                             'url': company_url,
                             'category': category
                         }
+    except requests.exceptions.Timeout:
+        return {'error': 'LinkedIn request timed out'}
     except Exception as e:
-        print(f"LinkedIn error for {company_name}: {str(e)}")
+        return {'error': f'LinkedIn error: {str(e)}'}
     return None
 
 def search_google(company_name):
+    if not google_limiter.can_make_request():
+        wait_time = google_limiter.time_until_next()
+        time.sleep(wait_time)
+        if not google_limiter.can_make_request():
+            return {'error': 'Rate limit exceeded for Google, please try again later'}
+    
     try:
         query = f"{company_name} singapore number of employees site:linkedin.com OR site:glassdoor.com"
         search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
         response = requests.get(search_url, headers=HEADERS, timeout=10)
+        
+        if response.status_code == 429:  # Too Many Requests
+            return {'error': 'Google rate limit reached, please try again later'}
+            
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'lxml')
             for result in soup.find_all('div', class_='g'):
@@ -100,43 +157,50 @@ def search_google(company_name):
                             'url': result_url,
                             'category': category
                         }
+    except requests.exceptions.Timeout:
+        return {'error': 'Google request timed out'}
     except Exception as e:
-        print(f"Google error for {company_name}: {str(e)}")
+        return {'error': f'Google error: {str(e)}'}
     return None
 
 def search_company(company_name):
-    sources = [search_linkedin, search_google]
     results = []
+    errors = []
     
-    for source_func in sources:
-        try:
-            result = source_func(company_name)
-            if result:
-                results.append(result)
-            time.sleep(random.uniform(1, 2))  # Random delay between requests
-        except Exception as e:
-            print(f"Error in {source_func.__name__} for {company_name}: {str(e)}")
+    # Try LinkedIn first
+    linkedin_result = search_linkedin(company_name)
+    if linkedin_result:
+        if 'error' in linkedin_result:
+            errors.append(linkedin_result['error'])
+        else:
+            results.append(linkedin_result)
+    
+    # Add delay between requests
+    time.sleep(random.uniform(1, 2))
+    
+    # Try Google if LinkedIn failed or had no results
+    if not results:
+        google_result = search_google(company_name)
+        if google_result:
+            if 'error' in google_result:
+                errors.append(google_result['error'])
+            else:
+                results.append(google_result)
     
     if not results:
         return {
             'company_name': company_name,
-            'employee_count': None,
+            'employee_range': 'Unknown',
             'sources': [],
-            'error': 'No data found'
+            'error': '; '.join(errors) if errors else 'No data found'
         }
     
-    # Use the most common count or the highest if there's a tie
-    counts = {}
-    for result in results:
-        count = result['count']
-        counts[count] = counts.get(count, 0) + 1
-    
-    most_common = max(counts.items(), key=lambda x: (x[1], x[0]))
+    # Use the most reliable source
+    best_result = results[0]
     
     return {
         'company_name': company_name,
-        'employee_count': most_common[0],
-        'employee_range': get_employee_range(most_common[0]),
+        'employee_range': get_employee_range(best_result['count']),
         'sources': results,
         'error': None
     }
@@ -163,9 +227,12 @@ def search():
         for company in companies:
             if not company.strip():
                 continue
+            
             result = search_company(company.strip())
             results.append(result)
-            time.sleep(random.uniform(1, 2))  # Rate limiting between companies
+            
+            # Add delay between companies
+            time.sleep(random.uniform(2, 3))
         
         return jsonify({'results': results})
     
