@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
@@ -142,6 +142,10 @@ def search_company(company_name):
         'employee_count': most_common[0],
         'sources': results
     }
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/search', methods=['POST'])
 def search():
