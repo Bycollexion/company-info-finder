@@ -222,10 +222,17 @@
             });
             
             const data = await response.json();
+            console.log('Server response:', data);
             
             if (!response.ok) {
                 throw new Error(data.error || 'Server error');
             }
+            
+            if (!data || !data.results) {
+                throw new Error('Invalid response format from server');
+            }
+            
+            const results = data.results || [];
             
             let html = `
                 <table>
@@ -235,21 +242,27 @@
                         <th>Sources</th>
                     </tr>`;
             
-            for (let i = 0; i < data.results.length; i++) {
-                const result = data.results[i];
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i] || {};
                 html += `
                     <tr>
-                        <td>${result.company_name}</td>
+                        <td>${result.company_name || 'N/A'}</td>
                         <td>${result.employee_count || 'N/A'}</td>
                         <td>`;
                 
-                if (result.sources && result.sources.length > 0) {
+                if (result.sources && Array.isArray(result.sources) && result.sources.length > 0) {
+                    const sourceParts = [];
                     for (let j = 0; j < result.sources.length; j++) {
-                        const source = result.sources[j];
-                        html += `<span class="source-tag">${source.source}: ${source.count}</span>`;
+                        const source = result.sources[j] || {};
+                        if (source.source && source.count) {
+                            sourceParts.push(`<span class="source-tag">${source.source}: ${source.count}</span>`);
+                        }
                     }
+                    html += sourceParts.join(' ');
                 } else if (result.error) {
                     html += `<span class="error">${result.error}</span>`;
+                } else {
+                    html += '<span class="error">No data found</span>';
                 }
                 
                 html += `</td></tr>`;
@@ -304,30 +317,40 @@
             });
             
             const data = await response.json();
+            console.log('Server response for CSV:', data);
             
             if (!response.ok) {
                 throw new Error(data.error || 'Server error');
             }
             
+            if (!data || !data.results) {
+                throw new Error('Invalid response format from server');
+            }
+            
+            const results = data.results || [];
             const rows = [['Company', 'Employee Count', 'Sources']];
             
-            for (let i = 0; i < data.results.length; i++) {
-                const result = data.results[i];
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i] || {};
                 let sources = '';
                 
-                if (result.sources && result.sources.length > 0) {
+                if (result.sources && Array.isArray(result.sources) && result.sources.length > 0) {
                     const sourceParts = [];
                     for (let j = 0; j < result.sources.length; j++) {
-                        const source = result.sources[j];
-                        sourceParts.push(`${source.source}: ${source.count}`);
+                        const source = result.sources[j] || {};
+                        if (source.source && source.count) {
+                            sourceParts.push(`${source.source}: ${source.count}`);
+                        }
                     }
                     sources = sourceParts.join('; ');
                 } else if (result.error) {
                     sources = result.error;
+                } else {
+                    sources = 'No data found';
                 }
                 
                 rows.push([
-                    result.company_name,
+                    result.company_name || 'N/A',
                     result.employee_count || 'N/A',
                     sources
                 ]);
