@@ -221,7 +221,7 @@
                     <tr>
                         <th>Company</th>
                         <th>Category</th>
-                        <th>Employee Count</th>
+                        <th>Employee Range</th>
                         <th>Sources</th>
                     </tr>`;
             
@@ -230,7 +230,7 @@
                     <tr>
                         <td>${result.company_name}</td>
                         <td>${result.sources && result.sources.length > 0 ? result.sources[0].category : 'Unknown'}</td>
-                        <td>${result.employee_count || 'N/A'}</td>
+                        <td>${result.employee_range || 'N/A'}</td>
                         <td>`;
                 
                 if (result.sources && result.sources.length > 0) {
@@ -238,7 +238,7 @@
                         html += `
                             <div class="source-tag">
                                 <a href="${source.url}" target="_blank" style="color: inherit; text-decoration: none;">
-                                    ${source.source}: ${source.count}
+                                    ${source.source}: ${source.range}
                                 </a>
                             </div>`;
                     });
@@ -301,13 +301,13 @@
                 throw new Error(data.error || 'Server error');
             }
             
-            const rows = [['Company', 'Category', 'Employee Count', 'Sources']];
+            const rows = [['Company', 'Category', 'Employee Range', 'Sources']];
             
             data.results.forEach(result => {
                 let sources = '';
                 if (result.sources && result.sources.length > 0) {
                     sources = result.sources
-                        .map(source => `${source.source}: ${source.count}`)
+                        .map(source => `${source.source}: ${source.range}`)
                         .join('; ');
                 } else if (result.error) {
                     sources = result.error;
@@ -316,7 +316,7 @@
                 rows.push([
                     result.company_name,
                     result.sources && result.sources.length > 0 ? result.sources[0].category : 'Unknown',
-                    result.employee_count || 'N/A',
+                    result.employee_range || 'N/A',
                     sources
                 ]);
             });

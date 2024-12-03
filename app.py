@@ -35,6 +35,18 @@ def extract_employee_count(text):
             return int(count)
     return None
 
+def get_employee_range(count):
+    if count is None:
+        return "Unknown"
+    if count < 50:
+        return "<50"
+    elif count < 100:
+        return "50-100"
+    elif count < 200:
+        return "100-200"
+    else:
+        return ">200"
+
 def categorize_company(employee_count):
     if employee_count is None:
         return "Unknown"
@@ -57,6 +69,7 @@ def search_linkedin(company_name):
                         return {
                             'source': 'LinkedIn',
                             'count': count,
+                            'range': get_employee_range(count),
                             'url': company_url,
                             'category': category
                         }
@@ -83,6 +96,7 @@ def search_google(company_name):
                         return {
                             'source': 'Google',
                             'count': count,
+                            'range': get_employee_range(count),
                             'url': result_url,
                             'category': category
                         }
@@ -122,6 +136,7 @@ def search_company(company_name):
     return {
         'company_name': company_name,
         'employee_count': most_common[0],
+        'employee_range': get_employee_range(most_common[0]),
         'sources': results,
         'error': None
     }
