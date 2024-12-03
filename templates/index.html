@@ -177,7 +177,15 @@
             return;
         }
         
-        const companyList = companies.split('\n').filter(c => c.trim());
+        const lines = companies.split('\n');
+        const companyList = [];
+        for (let i = 0; i < lines.length; i++) {
+            const company = lines[i].trim();
+            if (company) {
+                companyList.push(company);
+            }
+        }
+        
         if (companyList.length > 50) {
             resultDiv.className = 'error';
             resultDiv.textContent = 'Maximum 50 companies allowed';
@@ -189,7 +197,7 @@
         progressBar.style.display = 'block';
         
         try {
-            const response = await fetch('/search', {
+            const response = await fetch('http://localhost:3000/search', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -206,12 +214,17 @@
                 throw new Error(data.error || 'Server error');
             }
             
-            if (!data.results || !Array.isArray(data.results)) {
+            if (!data || !data.results) {
                 throw new Error('Invalid response format from server');
             }
             
+            const results = data.results;
+            if (!Array.isArray(results)) {
+                throw new Error('Results must be an array');
+            }
+            
             let html = `
-                <h3>Results for ${data.results.length} Companies</h3>
+                <h3>Results for ${results.length} Companies</h3>
                 <table>
                     <tr>
                         <th>Company</th>
@@ -221,7 +234,8 @@
                         <th>Sources</th>
                     </tr>`;
             
-            for (const result of data.results) {
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i];
                 const categoryClass = `category-${(result.category || '').toLowerCase().replace(/\s+/g, '') || 'unknown'}`;
                 
                 html += `
@@ -233,9 +247,12 @@
                         <td>`;
                 
                 if (result.sources && Array.isArray(result.sources)) {
-                    for (const source of result.sources) {
-                        html += `<span class="source-count">${source.source}: ${source.employee_count}</span>`;
+                    const sourceParts = [];
+                    for (let j = 0; j < result.sources.length; j++) {
+                        const source = result.sources[j];
+                        sourceParts.push(`${source.source}: ${source.count}`);
                     }
+                    html += sourceParts.join(', ');
                 } else if (result.error) {
                     html += `<span class="error">${result.error}</span>`;
                 }
@@ -268,7 +285,15 @@
             return;
         }
         
-        const companyList = companies.split('\n').filter(c => c.trim());
+        const lines = companies.split('\n');
+        const companyList = [];
+        for (let i = 0; i < lines.length; i++) {
+            const company = lines[i].trim();
+            if (company) {
+                companyList.push(company);
+            }
+        }
+        
         if (companyList.length > 50) {
             resultDiv.className = 'error';
             resultDiv.textContent = 'Maximum 50 companies allowed';
@@ -280,7 +305,7 @@
         progressBar.style.display = 'block';
         
         try {
-            const response = await fetch('/search', {
+            const response = await fetch('http://localhost:3000/search', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -297,20 +322,30 @@
                 throw new Error(data.error || 'Server error');
             }
             
-            if (!data.results || !Array.isArray(data.results)) {
+            if (!data || !data.results) {
                 throw new Error('Invalid response format from server');
+            }
+            
+            const results = data.results;
+            if (!Array.isArray(results)) {
+                throw new Error('Results must be an array');
             }
             
             // Convert results to CSV
             const csvRows = [];
             csvRows.push(['Company', 'Category', 'Employee Count', 'Source', 'All Sources']);
             
-            for (const result of data.results) {
-                let sources = '';
+            for (var i = 0; i < results.length; i++) {
+                var result = results[i];
+                var sources = '';
+                
                 if (result.sources && Array.isArray(result.sources)) {
-                    sources = result.sources
-                        .map(s => `${s.source}: ${s.employee_count}`)
-                        .join('; ');
+                    var sourceParts = [];
+                    for (var j = 0; j < result.sources.length; j++) {
+                        var source = result.sources[j];
+                        sourceParts.push(source.source + ': ' + source.count);
+                    }
+                    sources = sourceParts.join('; ');
                 } else if (result.error) {
                     sources = result.error;
                 }
@@ -325,10 +360,19 @@
             }
             
             // Create CSV content
-            const csvContent = csvRows.map(row => 
-                row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`)
-                   .join(',')
-            ).join('\n');
+            var csvContent = '';
+            for (var i = 0; i < csvRows.length; i++) {
+                var row = csvRows[i];
+                var rowContent = '';
+                for (var j = 0; j < row.length; j++) {
+                    var cell = row[j];
+                    rowContent += '"' + (cell || '').toString().replace(/"/g, '""') + '"';
+                    if (j < row.length - 1) {
+                        rowContent += ',';
+                    }
+                }
+                csvContent += rowContent + '\n';
+            }
             
             // Create and trigger download
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

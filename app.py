@@ -749,8 +749,8 @@ def search_company(company_name):
 
 if __name__ == '__main__':
     try:
-        port = int(os.environ.get('PORT', 3000))
+        port = int(os.environ.get('PORT', 3000))  # Changed to port 3000
         print(f"Starting server on port {port}...")
-        app.run(host='0.0.0.0', port=port, debug=False)
+        app.run(host='0.0.0.0', port=port)
     except Exception as e:
-        print(f"Error starting server: {str(e)}")
+        print(f"Error starting server: {e}")
